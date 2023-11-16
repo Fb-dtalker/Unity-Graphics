@@ -32,6 +32,13 @@ namespace UnityEditor.Rendering.HighDefinition
                     shader == hdrpAsset.renderPipelineResources.shaders.waterPS)
                     return true;
             }
+            
+            // If Data Driven Lens Flare is disabled, strip all the shaders (the preview shader LensFlareDataDrivenPreview.shader in Core will not be stripped)
+            if (!hdrpAsset.currentPlatformRenderPipelineSettings.supportDataDrivenLensFlare)
+            {
+                if (shader == hdrpAsset.renderPipelineResources.shaders.lensFlareDataDrivenPS)
+                    return true;
+            }
 
             // Remove editor only pass
             bool isSceneSelectionPass = snippet.passName == "SceneSelectionPass";
@@ -257,8 +264,8 @@ namespace UnityEditor.Rendering.HighDefinition
 #endif
 
             // HDR Output
-            if (!HDROutputUtils.IsShaderVariantValid(inputData.shaderKeywordSet, PlayerSettings.useHDRDisplay))
-                return true;
+            if (!HDROutputUtils.IsShaderVariantValid(inputData.shaderKeywordSet, PlayerSettings.allowHDRDisplaySupport))
+                 return true;
 
             return false;
         }

@@ -1,6 +1,7 @@
 Shader "Hidden/Universal Render Pipeline/StencilDeferred"
 {
-    Properties {
+    Properties
+    {
         _StencilRef ("StencilRef", Int) = 0
         _StencilReadMask ("StencilReadMask", Int) = 0
         _StencilWriteMask ("StencilWriteMask", Int) = 0
@@ -374,7 +375,10 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
 
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline"}
+        Tags
+        {
+            "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline"
+        }
 
         // 0 - Stencil pass
         Pass
@@ -387,7 +391,8 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             Cull Off
             ColorMask 0
 
-            Stencil {
+            Stencil
+            {
                 Ref [_StencilRef]
                 ReadMask [_StencilReadMask]
                 WriteMask [_StencilWriteMask]
@@ -424,7 +429,8 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             Blend One One, Zero One
             BlendOp Add, Add
 
-            Stencil {
+            Stencil
+            {
                 Ref [_LitPunctualStencilRef]
                 ReadMask [_LitPunctualStencilReadMask]
                 WriteMask [_LitPunctualStencilWriteMask]
@@ -441,16 +447,18 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile _POINT _SPOT
             #pragma multi_compile_fragment _LIT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
+            #pragma multi_compile _ _LIGHT_LAYERS
+            // Foveated rendering currently not supported in dxc on metal
+            #pragma never_use_dxc metal
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading
@@ -471,7 +479,8 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             Blend One One, Zero One
             BlendOp Add, Add
 
-            Stencil {
+            Stencil
+            {
                 Ref [_SimpleLitPunctualStencilRef]
                 ReadMask [_SimpleLitPunctualStencilReadMask]
                 WriteMask [_SimpleLitPunctualStencilWriteMask]
@@ -488,16 +497,18 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile _POINT _SPOT
             #pragma multi_compile_fragment _SIMPLELIT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
+            #pragma multi_compile _ _LIGHT_LAYERS
+            // Foveated rendering currently not supported in dxc on metal
+            #pragma never_use_dxc metal
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading
@@ -517,7 +528,8 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             Blend One SrcAlpha, Zero One
             BlendOp Add, Add
 
-            Stencil {
+            Stencil
+            {
                 Ref [_LitDirStencilRef]
                 ReadMask [_LitDirStencilReadMask]
                 WriteMask [_LitDirStencilWriteMask]
@@ -537,16 +549,18 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             #pragma multi_compile_fragment _ _DEFERRED_MAIN_LIGHT
             #pragma multi_compile_fragment _ _DEFERRED_FIRST_LIGHT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
+            #pragma multi_compile _ _LIGHT_LAYERS
+            // Foveated rendering currently not supported in dxc on metal
+            #pragma never_use_dxc metal
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading
@@ -566,7 +580,8 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             Blend One SrcAlpha, Zero One
             BlendOp Add, Add
 
-            Stencil {
+            Stencil
+            {
                 Ref [_SimpleLitDirStencilRef]
                 ReadMask [_SimpleLitDirStencilReadMask]
                 WriteMask [_SimpleLitDirStencilWriteMask]
@@ -582,20 +597,22 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
 
             #pragma multi_compile _DIRECTIONAL
             #pragma multi_compile_fragment _SIMPLELIT
+            #pragma multi_compile _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _DEFERRED_MAIN_LIGHT
             #pragma multi_compile_fragment _ _DEFERRED_FIRST_LIGHT
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ LIGHTMAP_SHADOW_MIXING
             #pragma multi_compile_fragment _ SHADOWS_SHADOWMASK
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_fragment _ _DEFERRED_MIXED_LIGHTING
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
             #pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _FOVEATED_RENDERING_NON_UNIFORM_RASTER
+            // Foveated rendering currently not supported in dxc on metal
+            #pragma never_use_dxc metal
 
             #pragma vertex Vertex
             #pragma fragment DeferredShading
@@ -643,7 +660,8 @@ Shader "Hidden/Universal Render Pipeline/StencilDeferred"
             ZWrite Off
             Cull Off
 
-            Stencil {
+            Stencil
+            {
                 Ref [_ClearStencilRef]
                 ReadMask [_ClearStencilReadMask]
                 WriteMask [_ClearStencilWriteMask]

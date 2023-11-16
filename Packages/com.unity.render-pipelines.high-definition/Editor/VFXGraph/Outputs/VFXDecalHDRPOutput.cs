@@ -142,21 +142,21 @@ namespace UnityEditor.VFX.HDRP
                     yield return new VFXPropertyWithValue(new VFXProperty(typeof(float),
                         "metallic",
                         new TooltipAttribute(useMaskMap
-                            ? "Controls the scale factor for the particleâ€™s metallic."
+                            ? "Controls the scale factor for the particle’s metallic."
                             : "Controls the metallic of the decal."),
                         new RangeAttribute(0, 1)), 0.0f);
 
                 if (affectsAOAndHasMaskMap)
                     yield return new VFXPropertyWithValue(new VFXProperty(typeof(float),
                         "ambientOcclusion",
-                        new TooltipAttribute("Controls the scale factor for the particleâ€™s ambient occlusion."),
+                        new TooltipAttribute("Controls the scale factor for the particle’s ambient occlusion."),
                         new RangeAttribute(0, 1)), 1.0f);
 
                 if (affectSmoothness)
                     yield return new VFXPropertyWithValue(new VFXProperty(typeof(float),
                         "smoothness",
                         new TooltipAttribute(useMaskMap
-                            ? "Controls the scale factor for the particleâ€™s smoothness."
+                            ? "Controls the scale factor for the particle’s smoothness."
                             : "Controls the smoothness of the decal."),
                         new RangeAttribute(0, 1)), 0.5f);
             }
@@ -250,7 +250,6 @@ namespace UnityEditor.VFX.HDRP
                 yield return "zWriteMode";
                 yield return "castShadows";
                 yield return "materialType";
-                yield return "sort";
 
                 if (!enableDecalLayers)
                     yield return "decalLayer";
@@ -378,7 +377,7 @@ namespace UnityEditor.VFX.HDRP
             }
         }
 
-        protected override void GenerateErrors(VFXInvalidateErrorReporter manager)
+        internal override void GenerateErrors(VFXInvalidateErrorReporter manager)
         {
             base.GenerateErrors(manager);
             if (!supportDecals)

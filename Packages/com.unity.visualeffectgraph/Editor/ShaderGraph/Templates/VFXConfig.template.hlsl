@@ -32,7 +32,7 @@ StructuredBuffer<uint> deadListCount;
 #endif
 
 #if HAS_STRIPS
-Buffer<uint> stripDataBuffer;
+StructuredBuffer<uint> stripDataBuffer;
 #endif
 
 #if VFX_FEATURE_MOTION_VECTORS_FORWARD || USE_MOTION_VECTORS_PASS
@@ -137,15 +137,21 @@ float3 GetStripTangent(float3 currentPos, uint instanceIndex, uint relativeIndex
     float3 prevTangent = (float3)0.0f;
     if (relativeIndex > 0)
     {
-        uint prevIndex = GetParticleIndex(relativeIndex - 1,stripData);
-        prevTangent = normalize(currentPos - GetParticlePosition(prevIndex,instanceIndex));
+        uint prevIndex = GetParticleIndex(relativeIndex - 1, stripData);
+        float3 tangent = currentPos - GetParticlePosition(prevIndex, instanceIndex);
+        float sqrLength = dot(tangent, tangent);
+        if (sqrLength > VFX_EPSILON)
+            prevTangent = tangent * rsqrt(sqrLength);
     }
 
     float3 nextTangent = (float3)0.0f;
     if (relativeIndex < stripData.nextIndex - 1)
     {
-        uint nextIndex = GetParticleIndex(relativeIndex + 1,stripData);
-        nextTangent = normalize(GetParticlePosition(nextIndex, instanceIndex) - currentPos);
+        uint nextIndex = GetParticleIndex(relativeIndex + 1, stripData);
+        float3 tangent = GetParticlePosition(nextIndex, instanceIndex) - currentPos;
+        float sqrLength = dot(tangent, tangent);
+        if (sqrLength > VFX_EPSILON)
+            nextTangent = tangent * rsqrt(sqrLength);
     }
 
     return normalize(prevTangent + nextTangent);
@@ -242,10 +248,6 @@ void SetupVFXMatrices(AttributesElement element, inout VFX_SRP_VARYINGS output)
         float3(element.attributes.pivotX, element.attributes.pivotY, element.attributes.pivotZ),
         GetElementSize(element.attributes),
         element.attributes.position
-
-#if VFX_APPLY_CAMERA_POSITION_IN_ELEMENT_MATRIX
-        + _WorldSpaceCameraPos
-#endif
     );
 
 #if VFX_LOCAL_SPACE
@@ -263,17 +265,20 @@ void SetupVFXMatrices(AttributesElement element, inout VFX_SRP_VARYINGS output)
         float3(element.attributes.pivotX,element.attributes.pivotY,element.attributes.pivotZ),
         GetElementSize(element.attributes),
         element.attributes.position
-
-#if VFX_APPLY_CAMERA_POSITION_IN_ELEMENT_MATRIX
-        - _WorldSpaceCameraPos
-#endif
-
     );
 
 #if VFX_LOCAL_SPACE
     worldToElement = mul(worldToElement,GetSGVFXUnityWorldToObject());
 #else
     worldToElement = ApplyCameraTranslationToInverseMatrix(worldToElement);
+#endif
+
+#if VFX_APPLY_CAMERA_POSITION_IN_ELEMENT_MATRIX
+    //Specific to PickingSpaceTransforms.hlsl (in HDRP so far)
+    //SHADEROPTIONS_CAMERA_RELATIVE_RENDERING has been undef at this stage
+    //Avoid removing twice _WorldSpaceCameraPos
+    elementToWorld = RevertCameraTranslationFromMatrix(elementToWorld);
+    worldToElement = RevertCameraTranslationFromInverseMatrix(worldToElement);
 #endif
 
     // Pack matrices into interpolator if requested by any node.

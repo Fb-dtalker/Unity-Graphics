@@ -99,9 +99,9 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
         Both = 0        // = CullMode.Off -- render both faces
     }
 
-    sealed class UniversalTarget : Target, IHasMetadata, ILegacyTarget
+    sealed class UniversalTarget : Target, IHasMetadata, ILegacyTarget, IMaySupportVFX
 #if HAS_VFX_GRAPH
-        , IMaySupportVFX, IRequireVFXContext
+        , IRequireVFXContext
 #endif
     {
         public override int latestVersion => 1;
@@ -109,6 +109,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
         // Constants
         static readonly GUID kSourceCodeGuid = new GUID("8c72f47fdde33b14a9340e325ce56f4d"); // UniversalTarget.cs
         public const string kPipelineTag = "UniversalPipeline";
+        public const string kComplexLitMaterialTypeTag = "\"UniversalMaterialType\" = \"ComplexLit\"";
         public const string kLitMaterialTypeTag = "\"UniversalMaterialType\" = \"Lit\"";
         public const string kUnlitMaterialTypeTag = "\"UniversalMaterialType\" = \"Unlit\"";
         public static readonly string[] kSharedTemplateDirectories = GenerationUtils.GetDefaultSharedTemplateDirectories().Union(new string[]
@@ -550,7 +551,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 onChange();
             });
 
-            context.AddProperty("Alpha Clipping", new Toggle() { value = alphaClip }, (evt) =>
+            context.AddProperty("Alpha Clipping", "Avoid using when Alpha and AlphaThreshold are constant for the entire material as enabling in this case could introduce visual artifacts and will add an unnecessary performance cost when used with MSAA (due to AlphaToMask)", 0, new Toggle() { value = alphaClip }, (evt) =>
             {
                 if (Equals(alphaClip, evt.newValue))
                     return;
@@ -772,17 +773,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
             return false;
         }
 
-        public bool SupportsVFX()
-        {
-#if HAS_VFX_GRAPH
-            if (!CanSupportVFX())
-                return false;
-
-            return m_SupportVFX;
-#else
-            return false;
-#endif
-        }
+        public bool SupportsVFX() => CanSupportVFX() && m_SupportVFX;
 
         [Serializable]
         class UniversalTargetLegacySerialization
@@ -947,7 +938,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 displayName = "DepthNormals",
                 referenceName = "SHADERPASS_DEPTHNORMALS",
                 lightMode = "DepthNormals",
-                useInPreview = false,
+                useInPreview = true,
 
                 // Template
                 passTemplatePath = UniversalTarget.kUberTemplatePath,
@@ -988,7 +979,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
                 displayName = "DepthNormalsOnly",
                 referenceName = "SHADERPASS_DEPTHNORMALSONLY",
                 lightMode = "DepthNormalsOnly",
-                useInPreview = false,
+                useInPreview = true,
 
                 // Template
                 passTemplatePath = UniversalTarget.kUberTemplatePath,
@@ -1665,6 +1656,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
             // Pre-graph
             { CorePregraph },
             { ShaderGraphPregraph },
+            { DOTSPregraph },
 
             // Post-graph
             { CorePostgraph },
@@ -1676,6 +1668,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
             // Pre-graph
             { CorePregraph },
             { ShaderGraphPregraph },
+            { DOTSPregraph },
 
             // Post-graph
             { CorePostgraph },
@@ -1885,6 +1878,36 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
             stages = KeywordShaderStage.Fragment,
         };
 
+        public static readonly KeywordDescriptor ShadowsSoftLow = new KeywordDescriptor()
+        {
+            displayName = "Shadows Soft Low Quality",
+            referenceName = "_SHADOWS_SOFT_LOW",
+            type = KeywordType.Boolean,
+            definition = KeywordDefinition.MultiCompile,
+            scope = KeywordScope.Global,
+            stages = KeywordShaderStage.Fragment,
+        };
+
+        public static readonly KeywordDescriptor ShadowsSoftMedium = new KeywordDescriptor()
+        {
+            displayName = "Shadows Soft Medium Quality",
+            referenceName = "_SHADOWS_SOFT_MEDIUM",
+            type = KeywordType.Boolean,
+            definition = KeywordDefinition.MultiCompile,
+            scope = KeywordScope.Global,
+            stages = KeywordShaderStage.Fragment,
+        };
+
+        public static readonly KeywordDescriptor ShadowsSoftHigh = new KeywordDescriptor()
+        {
+            displayName = "Shadows Soft High Quality",
+            referenceName = "_SHADOWS_SOFT_HIGH",
+            type = KeywordType.Boolean,
+            definition = KeywordDefinition.MultiCompile,
+            scope = KeywordScope.Global,
+            stages = KeywordShaderStage.Fragment,
+        };
+
         public static readonly KeywordDescriptor MixedLightingSubtractive = new KeywordDescriptor()
         {
             displayName = "Mixed Lighting Subtractive",
@@ -2085,8 +2108,12 @@ namespace UnityEditor.Rendering.Universal.ShaderGraph
             referenceName = ShaderKeywordStrings.LOD_FADE_CROSSFADE,
             type = KeywordType.Boolean,
             definition = KeywordDefinition.MultiCompile,
-            scope = KeywordScope.Global,
-            stages = KeywordShaderStage.Fragment,
+            
+            // Note: SpeedTree shaders used to have their own PS-based Crossfade,
+            //       as well as a VS-based smooth LOD transition effect.
+            //       These shaders need the LOD_FADE_CROSSFADE keyword in the VS
+            //       to skip the VS-based effect. 
+            scope = KeywordScope.Global
         };
 
         public static readonly KeywordDescriptor UseUnityCrossFade = new KeywordDescriptor()

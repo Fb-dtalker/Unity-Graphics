@@ -185,7 +185,8 @@ namespace UnityEditor.VFX.UI
             public static readonly GUIContent notAttached = EditorGUIUtility.TrTextContent("Select a Game Object running this VFX to attach it");
         }
 
-        public HashSet<VFXEditableDataAnchor> allDataAnchors = new HashSet<VFXEditableDataAnchor>();
+        public readonly HashSet<VFXEditableDataAnchor> allDataAnchors = new HashSet<VFXEditableDataAnchor>();
+        public readonly VFXErrorManager errorManager;
 
         public bool locked => m_VFXSettings.AttachedLocked;
 
@@ -202,7 +203,7 @@ namespace UnityEditor.VFX.UI
         }
 
         VFXViewSettings m_VFXSettings;
-        VisualElement m_NoAssetLabel;
+        VisualElement m_NoAssetElement;
         VisualElement m_LockedElement;
         Button m_BackButton;
         Vector2 m_pastCenter;
@@ -269,12 +270,6 @@ namespace UnityEditor.VFX.UI
                 m_VCSDropDown.SetStatus(Asset.States.None);
             }
 
-            if (previousController.graph)
-            {
-                previousController.graph.errorManager.onClearAllErrors -= ClearAllErrors;
-                previousController.graph.errorManager.onRegisterError -= RegisterError;
-            }
-
             SceneView.duringSceneGui -= OnSceneGUI;
             OnFocus();
         }
@@ -286,12 +281,6 @@ namespace UnityEditor.VFX.UI
                 if (controller != null && controller.graph)
                     controller.graph.SetCompilationMode(m_IsRuntimeMode ? VFXCompilationMode.Runtime : VFXCompilationMode.Edition);
             }).ExecuteLater(1);
-
-            if (m_Controller.graph)
-            {
-                m_Controller.graph.errorManager.onClearAllErrors += ClearAllErrors;
-                m_Controller.graph.errorManager.onRegisterError += RegisterError;
-            }
 
             m_Controller.RegisterHandler(this);
             m_Controller.useCount++;
@@ -437,7 +426,6 @@ namespace UnityEditor.VFX.UI
                         var subGraph = AssetDatabase.LoadAssetAtPath<VisualEffectSubgraphOperator>(path);
                         if (subGraph != null && (!controller.model.isSubgraph || !subGraph.GetResource().GetOrCreateGraph().subgraphDependencies.Contains(controller.model.subgraph) && subGraph.GetResource() != controller.model))
                         {
-                            ;
                             VFXModel newModel = VFXSubgraphOperator.CreateInstance<VFXSubgraphOperator>() as VFXModel;
 
                             controller.AddVFXModel(mPos, newModel);
@@ -470,6 +458,22 @@ namespace UnityEditor.VFX.UI
                 return controller.AddNode(mPos, d.modelDescriptor, groupNode != null ? groupNode.controller : null);
             }
             return null;
+        }
+
+        public void RefreshErrors(VFXModel model)
+        {
+            errorManager.ClearAllErrors(model, VFXErrorOrigin.Invalidate);
+            using (var reporter = new VFXInvalidateErrorReporter(errorManager, model))
+            {
+                try
+                {
+                    model.GenerateErrors(reporter);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
         }
 
         readonly VisualElement m_Toolbar;
@@ -533,6 +537,10 @@ namespace UnityEditor.VFX.UI
 
         public VFXView()
         {
+            errorManager = new VFXErrorManager();
+            errorManager.onRegisterError += RegisterError;
+            errorManager.onClearAllErrors += ClearAllErrors;
+
             m_UseInternalClipboard = false;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
             SetupZoom(0.125f, 8);
@@ -608,20 +616,13 @@ namespace UnityEditor.VFX.UI
             m_Toolbar.Add(helpDropDownButton);
             // End Toolbar
 
-            m_NoAssetLabel = new Label("\n\n\nTo begin creating Visual Effects, create a new Visual Effect Graph Asset.\n(or double-click an existing Visual Effect Graph in the project view)") { name = "no-asset" };
-            m_NoAssetLabel.style.position = PositionType.Absolute;
-            m_NoAssetLabel.style.left = new StyleLength(40f);
-            m_NoAssetLabel.style.right = new StyleLength(40f);
-            m_NoAssetLabel.style.top = new StyleLength(40f);
-            m_NoAssetLabel.style.bottom = new StyleLength(140f);
-            m_NoAssetLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-            m_NoAssetLabel.style.fontSize = new StyleLength(12f);
-            m_NoAssetLabel.style.color = Color.white * 0.75f;
-            Add(m_NoAssetLabel);
-
-            var createButton = new Button() { text = "Create new Visual Effect Graph" };
-            m_NoAssetLabel.Add(createButton);
+            var noAssetLabel = new Label("To begin creating Visual Effects, create a new Visual Effect Graph Asset.\n(or double-click an existing Visual Effect Graph in the project view)");
+            var createButton = new Button { text = "Create new Visual Effect Graph" };
             createButton.clicked += OnCreateAsset;
+
+            m_NoAssetElement = new VisualElement { name = "no-asset" };
+            m_NoAssetElement.Add(noAssetLabel);
+            m_NoAssetElement.Add(createButton);
 
             m_LockedElement = new VisualElement();
             m_LockedElement.style.position = PositionType.Absolute;
@@ -655,6 +656,7 @@ namespace UnityEditor.VFX.UI
 
             Add(m_Toolbar);
             Add(m_LockedElement);
+            Add(m_NoAssetElement);
             SetToolbarEnabled(false);
 
             m_VFXSettings = new VFXViewSettings();
@@ -804,6 +806,8 @@ namespace UnityEditor.VFX.UI
                 var badge = type == VFXErrorType.Error ? IconBadge.CreateError(description) : IconBadge.CreateComment(description);
                 targetParent.Add(badge);
                 badge.AttachTo(target, alignement);
+                if (type == VFXErrorType.Warning)
+                    badge.SendToBack();
 
                 if (errorOrigin == VFXErrorOrigin.Compilation)
                 {
@@ -887,13 +891,15 @@ namespace UnityEditor.VFX.UI
 
         public bool TryAttachTo(VisualEffect visualEffect, bool showNotification)
         {
-            if (m_Controller == null || visualEffect == null)
+            if (m_Controller == null || m_Controller.graph == null || visualEffect == null)
             {
                 return false;
             }
 
             bool attached = false;
-            if (visualEffect != null && controller?.graph.visualEffectResource.asset == visualEffect.visualEffectAsset)
+
+            VisualEffectAsset controllerAsset = controller.graph.visualEffectResource.asset;
+            if (controllerAsset != null && controllerAsset == visualEffect.visualEffectAsset)
             {
                 attached = m_ComponentBoard.Attach(visualEffect);
             }
@@ -1110,6 +1116,7 @@ namespace UnityEditor.VFX.UI
             if (change == VFXViewController.Change.destroy)
             {
                 m_Blackboard.controller = null;
+                m_ComponentBoard.controller = null;
                 controller = null;
                 return;
             }
@@ -1167,7 +1174,7 @@ namespace UnityEditor.VFX.UI
 
             if (controller != null)
             {
-                m_NoAssetLabel.RemoveFromHierarchy();
+                m_NoAssetElement.RemoveFromHierarchy();
                 SetToolbarEnabled(true);
 
                 m_AttachDropDownButton.SetEnabled(this.controller.graph.visualEffectResource.subgraph == null);
@@ -1177,10 +1184,10 @@ namespace UnityEditor.VFX.UI
             }
             else
             {
-                VFXSlotContainerEditor.SceneViewVFXSlotContainerOverlay.UpdateFromVFXView(this, Enumerable.Empty<IGizmoController>());
-                if (m_NoAssetLabel.parent == null)
+                VFXSlotContainerEditor.SceneViewVFXSlotContainerOverlay.UpdateFromVFXView(this, null);
+                if (m_NoAssetElement.parent == null)
                 {
-                    Add(m_NoAssetLabel);
+                    Add(m_NoAssetElement);
                     SetToolbarEnabled(false);
                 }
             }
@@ -1371,7 +1378,7 @@ namespace UnityEditor.VFX.UI
                         needOneListenToGeometry = false;
                         newElement.RegisterCallback<GeometryChangedEvent>(OnOneNodeGeometryChanged);
                     }
-                    newElement.controller.model.RefreshErrors(controller.graph);
+                    RefreshErrors(newElement.controller.model);
                     if (m_UpdateSelectionWithNewNode)
                     {
                         if (!selectionCleared)
@@ -1675,7 +1682,7 @@ namespace UnityEditor.VFX.UI
             else
             {
                 VFXGraph.explicitCompile = true;
-                using (var reporter = new VFXCompileErrorReporter(controller.graph.errorManager))
+                using (var reporter = new VFXCompileErrorReporter(errorManager))
                 {
                     VFXGraph.compileReporter = reporter;
                     AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(controller.model));
@@ -1699,7 +1706,7 @@ namespace UnityEditor.VFX.UI
                     try
                     {
                         VFXGraph.compilingInEditMode = !m_IsRuntimeMode;
-                        graph.GetResource().WriteAsset();
+                        graph.visualEffectResource.WriteAsset();
                     }
                     finally
                     {
@@ -2983,7 +2990,6 @@ namespace UnityEditor.VFX.UI
                             ? ScriptableObject.CreateInstance<VFXSubgraphContext>()
                             : ScriptableObject.CreateInstance<VFXSubgraphOperator>();
 
-
                         UpdateSelectionWithNewNode();
                         controller.AddVFXModel(mousePosition, newModel);
 
@@ -3111,17 +3117,24 @@ namespace UnityEditor.VFX.UI
             {
                 if (controller != null && controller.model && attachedComponent != null)
                 {
-                    var controllers = selection
-                        .OfType<IControlledElement<VFXParameterController>>()
-                        .Select(x => x.controller)
-                        .OfType<IGizmoController>()
-                        .Union(selection.OfType<ISettableControlledElement<VFXNodeController>>()
-                            .Select(x => x.controller)
-                            .OfType<IGizmoController>()).ToList();
-
-                    controllers.ForEach(x => x.DrawGizmos(attachedComponent));
+                    var controllers = new List<IGizmoController>();
+                    foreach (var selectable in selection)
+                    {
+                        if (selectable is IControlledElement<VFXParameterController> { controller: IGizmoController gizmoController })
+                        {
+                            controllers.Add(gizmoController);
+                        }
+                        else if (selectable is ISettableControlledElement<VFXNodeController> { controller: IGizmoController gizmoController2 })
+                        {
+                            controllers.Add(gizmoController2);
+                        }
+                    }
 
                     VFXSlotContainerEditor.SceneViewVFXSlotContainerOverlay.UpdateFromVFXView(this, controllers);
+                }
+                else
+                {
+                    VFXSlotContainerEditor.SceneViewVFXSlotContainerOverlay.UpdateFromVFXView(this, null);
                 }
             }
             catch (Exception e)

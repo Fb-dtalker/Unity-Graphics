@@ -679,10 +679,12 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// Called by Dispose().
         /// Override this function to clean up resources in your renderer.
+        /// Be sure to call this base dispose in your overridden function to free resources allocated by the base. 
         /// </summary>
         /// <param name="disposing"></param>
         protected virtual void Dispose(bool disposing)
         {
+            DebugHandler?.Dispose();
         }
 
         internal virtual void ReleaseRenderTargets()
@@ -1168,6 +1170,11 @@ namespace UnityEngine.Rendering.Universal
 
                     //Triggers dispatch per camera, all global parameters should have been setup at this stage.
                     VFX.VFXManager.ProcessCameraCommand(camera, cmd, new VFX.VFXCameraXRSettings(), renderingData.cullResults);
+
+                    // Force execution of the command buffer, to ensure that it is run before "BeforeRendering", (which renders shadow maps)
+                    // This is needed in 2022.2 because they are using different command buffers, but not in latest versions.
+                    context.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
                 }
 #endif
 
@@ -1409,6 +1416,9 @@ namespace UnityEngine.Rendering.Universal
             cmd.DisableShaderKeyword(ShaderKeywordStrings.ReflectionProbeBlending);
             cmd.DisableShaderKeyword(ShaderKeywordStrings.ReflectionProbeBoxProjection);
             cmd.DisableShaderKeyword(ShaderKeywordStrings.SoftShadows);
+            cmd.DisableShaderKeyword(ShaderKeywordStrings.SoftShadowsLow);
+            cmd.DisableShaderKeyword(ShaderKeywordStrings.SoftShadowsMedium);
+            cmd.DisableShaderKeyword(ShaderKeywordStrings.SoftShadowsHigh);
             cmd.DisableShaderKeyword(ShaderKeywordStrings.MixedLightingSubtractive); // Backward compatibility
             cmd.DisableShaderKeyword(ShaderKeywordStrings.LightmapShadowMixing);
             cmd.DisableShaderKeyword(ShaderKeywordStrings.ShadowsShadowMask);

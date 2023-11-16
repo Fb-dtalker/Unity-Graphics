@@ -55,6 +55,18 @@ namespace UnityEngine.Experimental.Rendering
         }
 
         /// <summary>
+        /// Returns if the XR display is running in HDR mode.
+        /// </summary>
+        static public bool isHDRDisplayOutputActive
+        {
+#if ENABLE_VR && ENABLE_XR_MODULE
+            get => s_Display?.hdrOutputSettings?.active ?? false;
+#else
+            get => false;
+#endif
+        }
+
+        /// <summary>
         /// Valid empty pass when a camera is not using XR.
         /// </summary>
         public static readonly XRPass emptyPass = new XRPass();
@@ -91,10 +103,10 @@ namespace UnityEngine.Experimental.Rendering
 
             foveatedRenderingCaps = SystemInfo.foveatedRenderingCaps;
 
-            if (occlusionMeshPS != null)
+            if (occlusionMeshPS != null && s_OcclusionMeshMaterial == null)
                 s_OcclusionMeshMaterial = CoreUtils.CreateEngineMaterial(occlusionMeshPS);
 
-            if (mirrorViewPS != null)
+            if (mirrorViewPS != null && s_MirrorViewMaterial == null)
                 s_MirrorViewMaterial = CoreUtils.CreateEngineMaterial(mirrorViewPS);
 
             if (XRGraphicsAutomatedTests.enabled)
@@ -188,8 +200,17 @@ namespace UnityEngine.Experimental.Rendering
         /// </summary>
         public static void Dispose()
         {
-            CoreUtils.Destroy(s_OcclusionMeshMaterial);
-            CoreUtils.Destroy(s_MirrorViewMaterial);
+            if (s_OcclusionMeshMaterial != null)
+            {
+                CoreUtils.Destroy(s_OcclusionMeshMaterial);
+                s_OcclusionMeshMaterial = null;
+            }
+
+            if (s_MirrorViewMaterial != null)
+            {
+                CoreUtils.Destroy(s_MirrorViewMaterial);
+                s_MirrorViewMaterial = null;
+            }
         }
 
         // Used by the render pipeline to communicate to the XR device the range of the depth buffer.

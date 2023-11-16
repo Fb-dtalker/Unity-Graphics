@@ -78,6 +78,12 @@ namespace UnityEditor.VFX
             CreateActivationSlotIfNeeded();
         }
 
+        public override void OnUnknownChange()
+        {
+            base.OnUnknownChange();
+            m_EnableStateUpToDate = false;
+        }
+
         public override void Sanitize(int version)
         {
             if (CreateActivationSlotIfNeeded())
@@ -169,7 +175,7 @@ namespace UnityEditor.VFX
         }
 
 
-        protected override void GenerateErrors(VFXInvalidateErrorReporter manager)
+        internal override void GenerateErrors(VFXInvalidateErrorReporter manager)
         {
             base.GenerateErrors(manager);
             if (GetParent() is VFXBlockSubgraphContext)

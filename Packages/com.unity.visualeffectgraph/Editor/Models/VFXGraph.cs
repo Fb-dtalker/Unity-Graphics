@@ -2,13 +2,19 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
-
+using System.Text;
 using UnityEditor.VFX.UI;
 using UnityEngine;
 using UnityEngine.VFX;
 using UnityEngine.Profiling;
+
+using UnityEditor.ShaderGraph;
+using UnityEditor.Graphing.Util;
+using UnityEditor.ShaderGraph.Serialization;
+using UnityEditor.ShaderGraph.Internal;
 
 using UnityObject = UnityEngine.Object;
 
@@ -94,11 +100,9 @@ namespace UnityEditor.VFX
             VisualEffectResource resource = VisualEffectResource.GetResourceAtPath(assetPath);
             if (resource != null)
             {
-                VFXGraph graph = resource.graph as VFXGraph;
-                if (graph != null)
-                    return resource.GetOrCreateGraph().GetImportDependencies();
-                else
-                    Debug.LogError("VisualEffectGraphResource without graph");
+                if (resource.graph is VFXGraph)
+                    return resource.GetOrCreateGraph().UpdateImportDependencies();
+                Debug.LogError("VisualEffectGraphResource without graph");
             }
             return null;
         }
@@ -199,54 +203,111 @@ namespace UnityEditor.VFX
                 serializedVFXManager.ApplyModifiedProperties();
 
                 AssetDatabase.StartAssetEditing();
-                foreach (var guid in allVisualEffectAssets)
+                try
                 {
-                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    foreach (var guid in AssetDatabase.FindAssets("t:VisualEffectAsset"))
+                    {
+                        var path = AssetDatabase.GUIDToAssetPath(guid);
 
-                    AssetDatabase.ImportAsset(path);
+                        AssetDatabase.ImportAsset(path);
+                    }
+
+                    VFXAssetManager.ImportAllVFXShaders();
                 }
-                AssetDatabase.StopAssetEditing();
+                finally
+                {
+                    AssetDatabase.StopAssetEditing();
+                }
             }
         }
     }
     class VFXAssetManager : EditorWindow
     {
-        public static List<VisualEffectObject> GetAllVisualEffectObjects()
+        public static Dictionary<VisualEffectObject, string> GetAllVisualEffectObjects()
         {
-            var vfxObjects = new List<VisualEffectObject>();
+            var allVisualEffectObjects = new Dictionary<VisualEffectObject, string>();
             var vfxObjectsGuid = AssetDatabase.FindAssets("t:VisualEffectObject");
             foreach (var guid in vfxObjectsGuid)
             {
-                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                var assetPath = AssetDatabase.GUIDToAssetPath(guid);
                 var vfxObj = AssetDatabase.LoadAssetAtPath<VisualEffectObject>(assetPath);
                 if (vfxObj != null)
                 {
-                    vfxObjects.Add(vfxObj);
+                    allVisualEffectObjects[vfxObj] = assetPath;
                 }
             }
-            return vfxObjects;
+
+            return allVisualEffectObjects;
+        }
+
+        public static Dictionary<Shader, string> GetAllShaderGraph()
+        {
+            var allShaderGraphObjects = new Dictionary<Shader, string>();
+            var shaderGraphGuids = AssetDatabase.FindAssets("t:Shader");
+            foreach (var guid in shaderGraphGuids)
+            {
+                var assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                var shaderGraph = AssetDatabase.LoadAssetAtPath<Shader>(assetPath);
+                if (shaderGraph != null)
+                {
+                    allShaderGraphObjects[shaderGraph] = assetPath;
+                }
+            }
+
+            return allShaderGraphObjects;
+        }
+
+        // Import VFX shader graph assets
+        // Because some shader compatible with VFX can be there before the Visual Effect package is installed
+        // We must re-import them to generate the ShaderGraphVfxAsset
+        public static void ImportAllVFXShaders()
+        {
+            var currentSrpBinder = VFXLibrary.currentSRPBinder;
+            if (currentSrpBinder != null)
+            {
+                foreach (var (shader, path) in GetAllShaderGraph())
+                {
+                    var assets = AssetDatabase.LoadAllAssetsAtPath(path);
+                    if (assets.OfType<ShaderGraphVfxAsset>().Any())
+                    {
+                        continue;
+                    }
+
+                    if (shader != null && currentSrpBinder.IsShaderVFXCompatible(shader))
+                    {
+                        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                    }
+                }
+            }
         }
 
         public static void Build(bool forceDirty = false)
         {
-            var vfxObjects = GetAllVisualEffectObjects();
-
-            foreach (var vfxObj in vfxObjects)
+            AssetDatabase.StartAssetEditing();
+            try
             {
-                if (VFXViewPreference.advancedLogs)
-                    Debug.Log(string.Format("Recompile VFX asset: {0} ({1})", vfxObj, AssetDatabase.GetAssetPath(vfxObj)));
-
-                var resource = vfxObj.GetResource();
-                if (resource != null)
+                foreach (var vfxObj in GetAllVisualEffectObjects())
                 {
-                    VFXGraph graph = resource.GetOrCreateGraph();
-                    AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(graph));
-                    if (forceDirty)
-                        EditorUtility.SetDirty(resource);
-                }
-            }
+                    if (VFXViewPreference.advancedLogs)
+                        Debug.Log($"Recompile VFX asset: {vfxObj.Key} ({vfxObj.Value})");
 
-            VFXExpression.ClearCache();
+                    var resource = VisualEffectResource.GetResourceAtPath(vfxObj.Value);
+                    if (resource != null)
+                    {
+                        AssetDatabase.ImportAsset(vfxObj.Value);
+                        if (forceDirty)
+                            EditorUtility.SetDirty(resource);
+                    }
+                }
+
+                VFXExpression.ClearCache();
+
+                ImportAllVFXShaders();
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
         }
 
         [MenuItem("Edit/VFX/Rebuild And Save All VFX Graphs", priority = 320)]
@@ -399,24 +460,16 @@ namespace UnityEditor.VFX
         // 12: Unexpected incorrect synchronization of output with ShaderGraph
         public static readonly int CurrentVersion = 12;
 
-        public readonly VFXErrorManager errorManager = new VFXErrorManager();
-
         [NonSerialized]
         internal static bool compilingInEditMode = false;
 
         public override void OnEnable()
         {
             base.OnEnable();
-            VFXLibrary.OnSRPChanged += OnSRPChanged;
             m_ExpressionGraphDirty = true;
         }
 
-        public virtual void OnDisable()
-        {
-            VFXLibrary.OnSRPChanged -= OnSRPChanged;
-        }
-
-        private void OnSRPChanged()
+        public override void OnSRPChanged()
         {
             m_GraphSanitized = false;
             m_ExpressionGraphDirty = true;
@@ -985,19 +1038,7 @@ namespace UnityEditor.VFX
 
         public void SanitizeForImport()
         {
-            if (!explicitCompile)
-            {
-                HashSet<int> dependentAsset = new HashSet<int>();
-                GetImportDependentAssets(dependentAsset);
-
-                foreach (var instanceID in dependentAsset)
-                {
-                    if (instanceID != 0 && EditorUtility.InstanceIDToObject(instanceID) == null)
-                    {
-                        return;
-                    }
-                }
-            }
+            // We arrive from AssetPostProcess so dependencies are already loaded no need to worry about them (FB #1364156)
 
             foreach (var child in children)
                 child.CheckGraphBeforeImport();
@@ -1012,22 +1053,6 @@ namespace UnityEditor.VFX
 
             if (!GetResource().isSubgraph)
             {
-                // Don't pursue the compile if one of the dependency is not yet loaded
-                // which happen at first import with .pcache
-                if (!explicitCompile)
-                {
-                    HashSet<int> dependentAsset = new HashSet<int>();
-                    GetImportDependentAssets(dependentAsset);
-
-                    foreach (var instanceID in dependentAsset)
-                    {
-                        if (instanceID != 0 && EditorUtility.InstanceIDToObject(instanceID) == null)
-                        {
-                            return;
-                        }
-                    }
-                }
-
                 // Check Graph Before Import can be needed to synchronize modified shaderGraph
                 foreach (var child in children)
                     child.CheckGraphBeforeImport();
@@ -1146,20 +1171,24 @@ namespace UnityEditor.VFX
             get { return m_SubgraphDependencies.AsReadOnly(); }
         }
 
-        public string[] GetImportDependencies()
+        public string[] UpdateImportDependencies()
         {
             visualEffectResource.ClearImportDependencies();
 
-            HashSet<int> dependentAsset = new HashSet<int>();
-            GetImportDependentAssets(dependentAsset);
+            var dependencies = new HashSet<int>();
+            GetImportDependentAssets(dependencies);
+            var dependentAssetGUIDs = dependencies
+                .Where(x => x != 0)
+                .Select(x => AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(x)))
+                .Distinct()
+                .ToArray();
 
-            foreach (var dep in dependentAsset)
+            foreach (var guid in dependentAssetGUIDs)
             {
-                if (dep != 0)
-                    visualEffectResource.AddImportDependency(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(dep)));
+                visualEffectResource.AddImportDependency(guid);
             }
 
-            return dependentAsset.Select(t => AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(t))).Distinct().ToArray();
+            return dependentAssetGUIDs;
         }
 
         private VisualEffectResource m_Owner;

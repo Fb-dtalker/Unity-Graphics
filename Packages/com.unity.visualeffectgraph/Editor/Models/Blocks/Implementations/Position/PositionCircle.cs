@@ -5,6 +5,7 @@ using UnityEngine.VFX;
 
 namespace UnityEditor.VFX.Block
 {
+    [VFXHelpURL("Block-SetPosition(Circle)")]
     [VFXInfo(category = "Attribute/position/Composition/{0}", variantProvider = typeof(PositionBaseProvider))]
     class PositionCircle : PositionBase
     {
@@ -63,7 +64,8 @@ namespace UnityEditor.VFX.Block
                 var transform = allSlot.FirstOrDefault(o => o.name == "arcCircle_circle_transform").exp;
                 var radiusScale = VFXOperatorUtility.UniformScaleMatrix(arcCircleRadius);
                 var finalTransform = new VFXExpressionTransformMatrix(transform, radiusScale);
-                var invFinalTransform = new VFXExpressionTransposeMatrix(new VFXExpressionInverseTRSMatrix(finalTransform));
+
+                var invFinalTransform = VFXOperatorUtility.InverseTransposeTRS(transform);
                 yield return new VFXNamedExpression(finalTransform, "transform");
                 yield return new VFXNamedExpression(invFinalTransform, "inverseTranspose");
             }

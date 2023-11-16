@@ -10,11 +10,16 @@ To activate HDR output, follow these steps.
 
 1. Locate the [URP Asset](./../universalrp-asset.md) in the Project window under **Assets** > **Settings**.
 2. Navigate to **Quality** > **HDR** and enable the checkbox to enable **HDR**.
-3. Next, navigate to **Edit** > **Project Settings** > **Player** > **Other Settings** and enable **Allow HDR Display Output**.
+3. Navigate to **Edit** > **Project Settings** > **Player** > **Other Settings** and enable the following settings:
 
-However, if you switch to a URP Asset that does not have HDR enabled, URP disables HDR Output until you change to a URP Asset with HDR enabled.
+    * **Allow HDR Display Output**
+    * **Use HDR Display Output**
 
-**Note**: If HDR Output is active, the grading mode falls back to HDR, even if there is a different Color Grading Mode active in the URP Asset.
+  > **Note**: Only enable **Use HDR Display Output** if you need the main display to use HDR Output.
+
+If you switch to a URP Asset that does not have HDR enabled, URP disables HDR Output until you change to a URP Asset with HDR enabled.
+
+> **Note**: If HDR Output is active, the grading mode falls back to HDR, even if there is a different Color Grading Mode active in the URP Asset.
 
 ## HDR tone mapping in URP
 
@@ -40,7 +45,7 @@ However, in HDR mode, URP uses Paper White values to determine the brightness of
 
 As a result, Paper White values determine the brightness of UI elements in HDR mode, especially white elements, whose brightness matches Paper White values.
 
-## Configure HDR Tone Mapping settings in the Volume component
+## Configure HDR Tone Mapping settings
 
 You can select and adjust Tonemapping modes in the [Volume](./../Volumes.md) component settings. You can also adjust some aspects of your HDR Tonemapping configuration with a script (see the [HDROutputSettings API](#the-hdroutputsettings-api)).
 
@@ -57,7 +62,7 @@ URP provides two **Tonemapping** modes: **Neutral** and **ACES**. Each Tonemappi
 
 | Property | Description |
 | -------- | ----------- |
-| **Neutral HDR Range Reduction Mode** | The curve that the Player uses for tone mapping. The options are:<ul><li>BT2390: The default. Defined by the [BT.2390](https://www.itu.int/pub/R-REP-BT.2390) broadcasting recommendations.</li><li>Reinhard: A simple Tone Mapping operator.</li></ul>This option is only available when you enable **Show Additional Properties**. |
+| **Neutral HDR Range Reduction Mode** | The curve that the Player uses for tone mapping. The options are:<ul><li>**BT2390**: The default. Defined by the [BT.2390](https://www.itu.int/pub/R-REP-BT.2390) broadcasting recommendations.</li><li>**Reinhard**: A simple Tone Mapping operator.</li></ul>This option is only available when you enable **Show Additional Properties**. |
 | **Hue Shift Amount** | The value determines the extent to which your content retains its original hue after you apply HDR settings. When this value is 0, the tonemapper attempts to preserve the hue of your content as much as possible by only tonemapping luminance. |
 | **Detect Paper White** | Enable this property if you want URP to use the Paper White value that the display communicates to the Unity Engine. In some cases, the value the display communicates may not be accurate. Implement a calibration menu for your application so that users can display your content correctly on displays that communicate inaccurate values. |
 | **Paper White** | The Paper White value of the display. If you do not enable **Detect Paper White**, you must specify a value here. |
@@ -85,6 +90,29 @@ This mode has fixed presets to target 1000, 2000, and 4000 nit displays. It is b
 
 The [HDROutputSettings](https://docs.unity3d.com/ScriptReference/HDROutputSettings.html) API makes it possible to enable and disable HDR mode, as well as query certain values (such as Paper White).
 
+## Offscreen Rendering
+
+When using offscreen rendering techniques, not all cameras in a scene output directly to the display. For example, when Unity is rendering the output to a Render Texture. In these situations, you use the output of the camera before rendering post-processing.
+
+Unity does not apply HDR Output processing to the output of cameras which use offscreen rendering techniques. This prevents HDR Output processing being applied twice to the camera's output.
+
+## SDR Rendering
+
+HDR Output relies on HDR Rendering to provide pixel values in the correct format for tone mapping and color encoding. The values after HDR tone mapping are in nits and exceed 1. This differs from SDR Rendering where the pixel values are between 0 and 1. As a result of this, the use of SDR Rendering with HDR Output can cause the rendered image to look underexposed or oversaturated.
+
+You can use SDR Rendering on a per-camera basis when you have HDR Output enabled, this can be useful for cameras that only render unlit materials, for example, for mini-map rendering. However, the use of SDR Rendering with HDR Output imposes some limitations.
+
+To ensure correct rendering when you use SDR Rendering with HDR Output, you must avoid any render passes that occur after post-processing. This includes URP's built-in effects which insert render passes after post-processing. As a result, SDR Rendering with HDR Output is incompatible with the following features:
+
+* [Upscaling](../universalrp-asset.md#quality)
+* [FXAA](../anti-aliasing.md#fast-approximate-anti-aliasing-fxaa)
+* [HDR Debug Views](#hdr-debug-views)
+* Custom passes which occur after post-processing
+
+### 2D Renderer
+
+To use SDR Rendering with HDR Output on the 2D Renderer, you must ensure post-processing is turned off.
+
 ## HDR Debug Views
 
 URP offers three debug views for HDR rendering. To access them, navigate to **Window** > **Analysis** > **Render Pipeline Debugger** > **Lighting** > **HDR Debug Mode**.
@@ -93,13 +121,13 @@ URP offers three debug views for HDR rendering. To access them, navigate to **Wi
 
 ![Gamut Debug View](./../Images/post-proc/hdr/HDR-Output-GamutView.png)
 
-The triangles in this debug view indicate which parts of two specific color gamuts this Scene covers. The small triangle displays the [Rec709](https://en.wikipedia.org/wiki/Rec._709) gamut values, and the large triangle displays the [Rec2020](https://en.wikipedia.org/wiki/Rec._2020) gamut values. This enables you to check color plot changes while color grading. It can also help you ensure that you benefit from the wider color gamut available in HDR.
+The triangles in this debug view indicate which parts of three specific color gamuts this scene covers. The small triangle displays the [Rec709](https://en.wikipedia.org/wiki/Rec._709) gamut values, the medium triangle displays the [P3-D65](https://en.wikipedia.org/wiki/DCI-P3) gamut values, and the large triangle displays the [Rec2020](https://en.wikipedia.org/wiki/Rec._2020) gamut values. This enables you to check color plot changes while color grading. It can also help you ensure that you benefit from the wider color gamut available in HDR.
 
 ### Gamut Clip
 
 ![Gamut Clip Debug View](./../Images/post-proc/hdr/HDR-Output-GamutClip.png)
 
-This debug view indicates the relationship between scene values and specific color gamuts. Areas of the screen outside of the Rec709 color gamut are red, and areas with values within the Rec709 gamut are green.
+This debug view indicates the relationship between scene values and specific color gamuts. Areas of the screen with values within the Rec709 gamut are green, areas outside of the Rec709 gamut but inside the P3-D65 gamut are blue, and areas outside of both are red.
 
 ### Values exceeding Paper White
 
@@ -107,26 +135,13 @@ This debug view indicates the relationship between scene values and specific col
 
 This debug view uses a color coded gradient to indicate parts of the Scene that exceed the Paper White value. The gradient ranges from yellow to red. Yellow corresponds to **Paper White** +1, and red corresponds to **Max Nits**.
 
-## Known Limitations
+## Platform Compatibility
 
-HDR Output is not compatible with all platforms and features:
+URP only supports HDR Output on the following platforms:
 
-- [Platform Compatibility](#platform-compatibility)
-- [Feature Compatibility](#feature-compatibility)
+* Windows with DirectX 11, DirectX 12 or Vulkan
+* MacOS with Metal
+* Consoles
+* XR devices with HDR support
 
-### Platform Compatibility
-
-URP supports HDR Output on the following platforms:
-
-- Windows with DirectX 12 or Vulkan
-- MacOS with Metal
-- Consoles
-
-### Feature Compatibility
-
-HDR Output in URP is not compatible with the following effects:
-
-- [Fast Approximate Anti-aliasing](./../camera-component-reference.md#rendering)
-- [FidelityFX Super Resolution 1.0 Upscaling](./../universalrp-asset.md#quality)
-- [Film Grain](./../Post-Processing-Film-Grain.md)
-- [Dithering](./../camera-component-reference.md)
+> **Note**: DirectX 11 only supports HDR Output in the Player, it does not support HDR Output in the Editor.

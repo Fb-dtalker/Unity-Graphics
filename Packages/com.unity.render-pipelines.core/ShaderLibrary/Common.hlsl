@@ -66,6 +66,48 @@
 // The function of the shader library are stateless, no uniform declare in it.
 // Any function that require an explicit precision, use float or half qualifier, when the function can support both, it use real (see below)
 // If a function require to have both a half and a float version, then both need to be explicitly define
+
+///
+/// Hardware Support for Wave Operations
+///
+
+// Support for wave operations is intentionally limited to the compute shader stage in order to make this functionality available to a wider range of hardware.
+#if defined(SHADER_STAGE_COMPUTE)
+    //
+    // Platform Support
+    //
+    #if (defined(UNITY_PLATFORM_SUPPORTS_WAVE_32) || defined(UNITY_PLATFORM_SUPPORTS_WAVE_64))
+        #if defined(UNITY_PLATFORM_SUPPORTS_WAVE_32)
+            #define UNITY_HW_WAVE_SIZE 32
+        #elif defined(UNITY_PLATFORM_SUPPORTS_WAVE_64)
+            #define UNITY_HW_WAVE_SIZE 64
+        #endif
+
+        #define UNITY_PLATFORM_SUPPORTS_WAVE 1
+    //
+    // Device Support
+    //
+    #elif (defined(UNITY_DEVICE_SUPPORTS_WAVE_ANY) || defined(UNITY_DEVICE_SUPPORTS_WAVE_8) || defined(UNITY_DEVICE_SUPPORTS_WAVE_16) || defined(UNITY_DEVICE_SUPPORTS_WAVE_32) || defined(UNITY_DEVICE_SUPPORTS_WAVE_64) || defined(UNITY_DEVICE_SUPPORTS_WAVE_128))
+        #if defined(UNITY_DEVICE_SUPPORTS_WAVE_8)
+            #define UNITY_HW_WAVE_SIZE 8
+        #elif defined(UNITY_DEVICE_SUPPORTS_WAVE_16)
+            #define UNITY_HW_WAVE_SIZE 16
+        #elif defined(UNITY_DEVICE_SUPPORTS_WAVE_32)
+            #define UNITY_HW_WAVE_SIZE 32
+        #elif defined(UNITY_DEVICE_SUPPORTS_WAVE_64)
+            #define UNITY_HW_WAVE_SIZE 64
+        #elif defined(UNITY_DEVICE_SUPPORTS_WAVE_128)
+            #define UNITY_HW_WAVE_SIZE 128
+        #endif
+
+        #define UNITY_DEVICE_SUPPORTS_WAVE 1
+    #endif
+
+    #if (defined(UNITY_PLATFORM_SUPPORTS_WAVE) || defined(UNITY_DEVICE_SUPPORTS_WAVE))
+        #define UNITY_HW_SUPPORTS_WAVE 1
+    #endif
+#endif
+
 #ifndef real
 
 // The including shader should define whether half
@@ -236,9 +278,9 @@
             #define LOAD_FRAMEBUFFER_INPUT_MS(idx, sampleIdx, v2fname) DXC_DummySubpassVariable##idx
         #endif
 
-    #elif defined(SHADER_API_METAL) && defined(SHADER_API_DESKTOP)
+    #elif defined(SHADER_API_METAL) && defined(UNITY_NEEDS_RENDERPASS_FBFETCH_FALLBACK)
 
-                // On desktop metal we need special magic due to the need to support both intel and apple silicon
+        // On desktop metal we need special magic due to the need to support both intel and apple silicon
         // since the former does not support framebuffer fetch
         // Due to this we have special considerations:
         // 1. since we might need to bind the copy texture, to simplify our lives we always declare _UnityFBInput texture
@@ -368,8 +410,8 @@
 #define LODDitheringTransition ERROR_ON_UNSUPPORTED_FUNCTION(LODDitheringTransition)
 #endif
 
-// On everything but GCN consoles or DXC compiled shaders we error on cross-lane operations
-#if !defined(PLATFORM_SUPPORTS_WAVE_INTRINSICS) && !defined(UNITY_COMPILER_DXC)
+#if !defined(PLATFORM_SUPPORTS_WAVE_INTRINSICS) && !defined(UNITY_COMPILER_DXC) && !defined(UNITY_HW_SUPPORTS_WAVE)
+// Intercept wave functions when they aren't supported to provide better error messages
 #define WaveActiveAllTrue ERROR_ON_UNSUPPORTED_FUNCTION(WaveActiveAllTrue)
 #define WaveActiveAnyTrue ERROR_ON_UNSUPPORTED_FUNCTION(WaveActiveAnyTrue)
 #define WaveGetLaneIndex ERROR_ON_UNSUPPORTED_FUNCTION(WaveGetLaneIndex)

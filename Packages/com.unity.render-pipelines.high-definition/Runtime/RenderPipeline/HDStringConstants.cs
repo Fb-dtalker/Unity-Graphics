@@ -324,6 +324,7 @@ namespace UnityEngine.Rendering.HighDefinition
         public static readonly int _CameraSssDiffuseLightingBuffer = Shader.PropertyToID("_CameraSssDiffuseLightingTexture");
         public static readonly int _CameraFilteringBuffer = Shader.PropertyToID("_CameraFilteringTexture");
         public static readonly int _IrradianceSource = Shader.PropertyToID("_IrradianceSource");
+        public static readonly int _InputDepthTexture = Shader.PropertyToID("_InputDepthTexture");
 
         // Planar reflection filtering
         public static readonly int _ReflectionColorMipChain = Shader.PropertyToID("_ReflectionColorMipChain");
@@ -1220,6 +1221,8 @@ namespace UnityEngine.Rendering.HighDefinition
         public const string kAffectSmoothness = "_AffectSmoothness";
         /// <summary>Enable affect Emission (decal only.</summary>
         public const string kAffectEmission = "_AffectEmission";
+        /// <summary>Exclude from temporal upsamplers and anti aliasing.</summary>
+        public const string kExcludeFromTUAndAA = "_ExcludeFromTUAndAA";
 
         // Internal properties
 
@@ -1236,6 +1239,7 @@ namespace UnityEngine.Rendering.HighDefinition
         internal const string kDecalStencilWriteMask = "_DecalStencilWriteMask";
         internal const string kDecalStencilRef = "_DecalStencilRef";
         internal const string kEnableGeometricSpecularAA = "_EnableGeometricSpecularAA";
+        internal const string kRenderQueueTypeShaderGraph = "_RenderQueueType";
 
         internal const string kUseSplitLighting = "_RequireSplitLighting";
 

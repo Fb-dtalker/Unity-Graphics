@@ -53,6 +53,7 @@ namespace UnityEditor.Rendering.HighDefinition
             public static readonly string resolveAllQuality = L10n.Tr("Fix All Qualities");
             public static readonly string resolveAllBuildTarget = L10n.Tr("Fix All Platforms");
             public static readonly string fixAllOnNonHDRP = L10n.Tr("The active Quality Level is not using a High Definition Render Pipeline asset. If you attempt a Fix All, the Quality Level will be changed to use it.");
+            public static readonly string nonBuiltinMaterialWarning = L10n.Tr("The project contains materials that are not using built-in shaders. These will be skipped in the automated migration process.");
 
             public struct ConfigStyle
             {
@@ -189,7 +190,7 @@ namespace UnityEditor.Rendering.HighDefinition
                 messageType: MessageType.Info);
             public static readonly ConfigStyle dxrBuildTarget = new ConfigStyle(
                 label: L10n.Tr("Build Target"),
-                error: L10n.Tr("To build your Project as a Unity Player your build target must be StandaloneWindows64 or Playstation5."));
+                error: L10n.Tr("To build your Project as a Unity Player your build target must be StandaloneWindows64, Playstation5 or Xbox series X"));
             public static readonly ConfigStyle dxrStaticBatching = new ConfigStyle(
                 label: L10n.Tr("Static Batching"),
                 error: L10n.Tr("Static Batching is not supported!"));
@@ -439,6 +440,13 @@ namespace UnityEditor.Rendering.HighDefinition
             currentQualityScope.Add(dxrScopeCurrentQuality);
 
             container.Add(CreateTitle(Style.migrationTitle));
+
+            if (MaterialUpgrader.ProjectFolderContainsNonBuiltinMaterials(
+                    UpgradeStandardShaderMaterials.GetHDUpgraders()))
+            {
+                container.Add(new HelpBox(HelpBox.Kind.Warning, Style.nonBuiltinMaterialWarning));
+            }
+
             container.Add(CreateLargeButton(Style.migrateAllButton, UpgradeStandardShaderMaterials.UpgradeMaterialsProject));
             container.Add(CreateLargeButton(Style.migrateSelectedButton, UpgradeStandardShaderMaterials.UpgradeMaterialsSelection));
             container.Add(CreateLargeButton(Style.migrateMaterials, HDRenderPipelineMenuItems.UpgradeMaterials));

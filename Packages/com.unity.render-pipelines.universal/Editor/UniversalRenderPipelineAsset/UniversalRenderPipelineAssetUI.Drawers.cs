@@ -171,9 +171,6 @@ namespace UnityEditor.Rendering.Universal
                     serialized.fsrSharpness.floatValue = EditorGUILayout.Slider(Styles.fsrSharpnessText, serialized.fsrSharpness.floatValue, 0.0f, 1.0f);
                 }
 
-                if (PlayerSettings.useHDRDisplay && serialized.hdr.boolValue)
-                    EditorGUILayout.HelpBox(Styles.unsupportedFsrWithHDROutputWarning, MessageType.Warning);
-
                 --EditorGUI.indentLevel;
             }
             EditorGUILayout.PropertyField(serialized.enableLODCrossFadeProp, Styles.enableLODCrossFadeText);
@@ -548,7 +545,7 @@ namespace UnityEditor.Rendering.Universal
                 EditorGUILayout.HelpBox(Styles.colorGradingModeWarning, MessageType.Warning);
             else if (isHdrOn && serialized.colorGradingMode.intValue == (int)ColorGradingMode.HighDynamicRange)
                 EditorGUILayout.HelpBox(Styles.colorGradingModeSpecInfo, MessageType.Info);
-            else if (isHdrOn && PlayerSettings.useHDRDisplay && serialized.colorGradingMode.intValue == (int)ColorGradingMode.LowDynamicRange)
+            else if (isHdrOn && PlayerSettings.allowHDRDisplaySupport && serialized.colorGradingMode.intValue == (int)ColorGradingMode.LowDynamicRange)
                 EditorGUILayout.HelpBox(Styles.colorGradingModeWithHDROutput, MessageType.Warning);
 
             EditorGUILayout.DelayedIntField(serialized.colorGradingLutSize, Styles.colorGradingLutSize);
@@ -557,6 +554,7 @@ namespace UnityEditor.Rendering.Universal
                 EditorGUILayout.HelpBox(Styles.colorGradingLutSizeWarning, MessageType.Warning);
 
             EditorGUILayout.PropertyField(serialized.useFastSRGBLinearConversion, Styles.useFastSRGBLinearConversion);
+            EditorGUILayout.PropertyField(serialized.supportDataDrivenLensFlare, Styles.supportDataDrivenLensFlare);
             CoreEditorUtils.DrawPopup(Styles.volumeFrameworkUpdateMode, serialized.volumeFrameworkUpdateModeProp, Styles.volumeFrameworkUpdateOptions);
         }
 

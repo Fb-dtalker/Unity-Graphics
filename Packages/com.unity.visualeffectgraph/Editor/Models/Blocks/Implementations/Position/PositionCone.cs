@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace UnityEditor.VFX.Block
 {
+    [VFXHelpURL("Block-SetPosition(Cone)")]
     [VFXInfo(category = "Attribute/position/Composition/Set", variantProvider = typeof(PositionBaseProvider))]
     class PositionCone : PositionBase
     {
@@ -74,7 +75,7 @@ namespace UnityEditor.VFX.Block
 
                 yield return new VFXNamedExpression(new VFXExpressionCombine(new VFXExpression[] { new VFXExpressionSin(slope), new VFXExpressionCos(slope) }), "sincosSlope");
 
-                var invFinalTransform = new VFXExpressionTransposeMatrix(new VFXExpressionInverseTRSMatrix(transform));
+                var invFinalTransform = VFXOperatorUtility.InverseTransposeTRS(transform);
                 yield return new VFXNamedExpression(invFinalTransform, "arcCone_cone_inverseTranspose");
             }
         }

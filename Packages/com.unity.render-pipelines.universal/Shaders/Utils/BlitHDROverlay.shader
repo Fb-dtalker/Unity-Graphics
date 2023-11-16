@@ -5,7 +5,7 @@ Shader "Hidden/Universal/BlitHDROverlay"
         #pragma editor_sync_compilation
         #pragma multi_compile _ DISABLE_TEXTURE2D_X_ARRAY
         #pragma multi_compile _ BLIT_SINGLE_SLICE
-        #pragma multi_compile_local_fragment HDR_COLORSPACE_CONVERSION HDR_ENCODING HDR_COLORSPACE_CONVERSION_AND_ENCODING
+        #pragma multi_compile_local_fragment _ HDR_COLORSPACE_CONVERSION HDR_ENCODING HDR_COLORSPACE_CONVERSION_AND_ENCODING
 
         // Core.hlsl for XR dependencies
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -29,7 +29,7 @@ Shader "Hidden/Universal/BlitHDROverlay"
 
 #if defined(HDR_ENCODING)
             color.rgb = SceneUIComposition(uiSample, color.rgb, PaperWhite, MaxNits);
-            color.rgb = OETF(color.rgb);
+            color.rgb = OETF(color.rgb, MaxNits);
 #endif
             return color;
         }

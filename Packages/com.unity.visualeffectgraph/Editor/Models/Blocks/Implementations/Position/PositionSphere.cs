@@ -1,10 +1,10 @@
 using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.VFX;
 
 namespace UnityEditor.VFX.Block
 {
+    [VFXHelpURL("Block-SetPosition(Sphere)")]
     [VFXInfo(category = "Attribute/position/Composition/{0}", variantProvider = typeof(PositionBaseProvider))]
     class PositionSphere : PositionBase
     {
@@ -44,9 +44,9 @@ namespace UnityEditor.VFX.Block
 
                 var radiusScale = VFXOperatorUtility.UniformScaleMatrix(radius);
                 var finalTransform = new VFXExpressionTransformMatrix(transform, radiusScale);
-                var invFinalTransform = new VFXExpressionTransposeMatrix(new VFXExpressionInverseTRSMatrix(finalTransform));
+                var inverseTransposeTRS =  VFXOperatorUtility.InverseTransposeTRS(transform);
                 yield return new VFXNamedExpression(finalTransform, "transform");
-                yield return new VFXNamedExpression(invFinalTransform, "inverseTranspose");
+                yield return new VFXNamedExpression(inverseTransposeTRS, "inverseTranspose");
                 yield return new VFXNamedExpression(CalculateVolumeFactor(positionMode, radius, thickness), "volumeFactor");
             }
         }

@@ -1,6 +1,7 @@
 //-----------------------------------------------------------------------------
 // Configuration
 //-----------------------------------------------------------------------------
+using System;
 
 namespace UnityEngine.Rendering.HighDefinition
 {
@@ -9,8 +10,19 @@ namespace UnityEngine.Rendering.HighDefinition
     internal enum FPTLMaxLightSizes
     {
         Low = 31,
-        High = 63
+        High = 63,
+        Higher = 127,
+        Ultra = 255
     }
+
+    internal enum PathTracingLightListSizes
+    {
+        Low = 8,
+        Medium = 16,
+        High = 32,
+        Ultra = 64
+    }
+
 
     /// <summary>
     /// Project-wide shader configuration options.
@@ -50,7 +62,18 @@ namespace UnityEngine.Rendering.HighDefinition
         /// Lower count will mean some memory savings.
         /// Note: For any rendering bigger than 4k (in native) it is recommended to use Low count per tile, to avoid possible artifacts.
         /// </summary>
-        FPTLMaxLightCount = FPTLMaxLightSizes.High
+        FPTLMaxLightCount = FPTLMaxLightSizes.High,
+
+        /// <summary>
+        /// The upper limit for the maximum amount of elements per cell in the light cluster. The maximum can be set in the project settings. This value caps the maximum.
+        /// </summary>
+        LightClusterMaxCellElementCount = 24,
+
+        /// <summary>
+        /// Maximum number of lights used in the path tracer light list. This number can be one of the prespecified possibilities in PathTracingLightListSizes, or can be chosen manually.
+        /// Lower count will mean some memory savings.
+        /// </summary>
+        PathTracingMaxLightCount = PathTracingLightListSizes.Medium
     };
 
     // Note: #define can't be use in include file in C# so we chose this way to configure both C# and hlsl
@@ -91,5 +114,41 @@ namespace UnityEngine.Rendering.HighDefinition
         /// <summary>Indicates the maximum number of lights available for Fine Prunning Tile Lighting.</summary>
         /// <seealso cref="ShaderOptions.FPTLMaxLightCount"/>
         public static int FPTLMaxLightCount = (int)ShaderOptions.FPTLMaxLightCount;
+        /// <summary>Indicates the cap on the maximum number of elements per cell in the light cluster.</summary>
+        /// <seealso cref="ShaderOptions.LightClusterMaxCellElementCount"/>
+        public const int LightClusterMaxCellElementCount = (int)ShaderOptions.LightClusterMaxCellElementCount;
+        /// <summary>Indicates the maximum number of lights in the path tracing light list.</summary>
+        /// <seealso cref="ShaderOptions.PathTracingMaxLightCount"/>
+        public static int PathTracingMaxLightCount = (int)ShaderOptions.PathTracingMaxLightCount;
+    }
+
+    /// <summary>
+    /// Internal definitions for FPTL and light culling algorithms. Do not modify, these variables are
+    /// generated from the FPTLMaxLightCount setting automatically.
+    /// </summary>
+    [GenerateHLSL]
+    public class InternalLightCullingDefs
+    {
+        /// <summary>Maximum number of lights for a big tile. Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_MaxNrBigTileLightsPlusOne = Math.Clamp((ShaderConfig.FPTLMaxLightCount + 1) * 8, 512, 1024);      // if light count is 64, may be overkill but the footprint is 2 bits per pixel using uint16.
+
+        // light list limits
+        /// <summary>Maximum number of lights for coarse entries (before fine prunning). Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_LightListMaxCoarseEntries = Math.Clamp(ShaderConfig.FPTLMaxLightCount + 1, 64, 256);
+        /// <summary>Maximum number of lights for cluster coarse entries. Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_LightClusterMaxCoarseEntries = Math.Clamp((ShaderConfig.FPTLMaxLightCount + 1) * 2, 128, 256); // we expect coarse cluster max count to grow with FPTL light count
+
+        // We have room for ShaderConfig.FPTLMaxLightCount lights, plus 1 implicit value for length.
+        // We allocate only 16 bits per light index & length, thus we divide by 2, and store in a word buffer.
+        /// <summary>Maximum number of dwords per tile. Each light occupies 16 bits. Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_LightDwordPerFptlTile = ((ShaderConfig.FPTLMaxLightCount + 1)) / 2;
+        /// <summary>Number of bits required to pack cluster count. Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_LightClusterPackingCountBits = (int)Mathf.Ceil(Mathf.Log(Mathf.NextPowerOfTwo(ShaderConfig.FPTLMaxLightCount), 2));
+        /// <summary>Bit mask for packing cluster count. Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_LightClusterPackingCountMask = (1 << s_LightClusterPackingCountBits) - 1;
+        /// <summary>Number of bits required to pack a cluster offset. Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_LightClusterPackingOffsetBits = 32 - s_LightClusterPackingCountBits;
+        /// <summary>Bit mask for packing cluster light offset. Do not modify value, since its generated from ShaderConfig.FPTLMaxLightCount.</summary>
+        public static int s_LightClusterPackingOffsetMask = (1 << s_LightClusterPackingOffsetBits) - 1;
     }
 }

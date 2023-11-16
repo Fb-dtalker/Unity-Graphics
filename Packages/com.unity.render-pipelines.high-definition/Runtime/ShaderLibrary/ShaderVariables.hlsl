@@ -203,6 +203,14 @@ TEXTURE2D(_PrevExposureTexture);
         #endif //SAMPLE_TEXTURE2D_ARRAY_BIAS
     #endif //PLATFORM_SAMPLE_TEXTURE2D_ARRAY_BIAS
 
+    #ifdef PLATFORM_SAMPLE_TEXTURE2D_ARRAY_GRAD
+        #ifdef SAMPLE_TEXTURE2D_ARRAY_GRAD
+            #undef SAMPLE_TEXTURE2D_ARRAY_GRAD
+            #define SAMPLE_TEXTURE2D_ARRAY_GRAD(textureName, samplerName, coord2, index, dpdx, dpdy)\
+                PLATFORM_SAMPLE_TEXTURE2D_ARRAY_GRAD(textureName, samplerName, coord2, index, (dpdx * _GlobalMipBiasPow2), (dpdy * _GlobalMipBiasPow2))
+        #endif
+    #endif //PLATFORM_SAMPLE_TEXTURE2D_ARRAY_BIAS
+
     //2d texture cube arrays bias manipulation
     #ifdef PLATFORM_SAMPLE_TEXTURECUBE_BIAS
         #ifdef  SAMPLE_TEXTURECUBE
@@ -350,6 +358,24 @@ float4x4 ApplyCameraTranslationToInverseMatrix(float4x4 inverseModelMatrix)
 #endif
 }
 
+float4x4 RevertCameraTranslationFromInverseMatrix(float4x4 inverseModelMatrix)
+{
+#if (SHADEROPTIONS_CAMERA_RELATIVE_RENDERING != 0)
+    // To handle camera relative rendering we need to apply translation before converting to object space
+    float4x4 translationMatrix = { { 1.0, 0.0, 0.0, -_WorldSpaceCameraPos.x },{ 0.0, 1.0, 0.0, -_WorldSpaceCameraPos.y },{ 0.0, 0.0, 1.0, -_WorldSpaceCameraPos.z },{ 0.0, 0.0, 0.0, 1.0 } };
+    return mul(inverseModelMatrix, translationMatrix);
+#else
+    return inverseModelMatrix;
+#endif
+}
+
+float4x4 RevertCameraTranslationFromMatrix(float4x4 modelMatrix)
+{
+#if (SHADEROPTIONS_CAMERA_RELATIVE_RENDERING != 0)
+    modelMatrix._m03_m13_m23 += _WorldSpaceCameraPos.xyz;
+#endif
+    return modelMatrix;
+}
 void ApplyCameraRelativeXR(inout float3 positionWS)
 {
 #if (SHADEROPTIONS_CAMERA_RELATIVE_RENDERING != 0) && defined(USING_STEREO_MATRICES)
@@ -596,15 +622,15 @@ float4 UnpackVTFeedbackWithAlpha(float4 feedbackWithAlpha)
 #undef unity_MatrixPreviousM
 #undef unity_MatrixPreviousMI
 UNITY_DOTS_INSTANCING_START(BuiltinPropertyMetadata)
-    UNITY_DOTS_INSTANCED_PROP(float3x4, unity_ObjectToWorld)
-    UNITY_DOTS_INSTANCED_PROP(float3x4, unity_WorldToObject)
-    UNITY_DOTS_INSTANCED_PROP(float4,   unity_LightmapST)
-    UNITY_DOTS_INSTANCED_PROP(float4,   unity_LightmapIndex)
-    UNITY_DOTS_INSTANCED_PROP(float4,   unity_DynamicLightmapST)
-    UNITY_DOTS_INSTANCED_PROP(float3x4, unity_MatrixPreviousM)
-    UNITY_DOTS_INSTANCED_PROP(float3x4, unity_MatrixPreviousMI)
-    UNITY_DOTS_INSTANCED_PROP(SH,       unity_SHCoefficients)
-    UNITY_DOTS_INSTANCED_PROP(uint2,    unity_EntityId)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(float3x4, unity_ObjectToWorld)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(float3x4, unity_WorldToObject)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(float4,   unity_LightmapST)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(float4,   unity_LightmapIndex)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(float4,   unity_DynamicLightmapST)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(float3x4, unity_MatrixPreviousM)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(float3x4, unity_MatrixPreviousMI)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(SH,       unity_SHCoefficients)
+    UNITY_DOTS_INSTANCED_PROP_OVERRIDE_SUPPORTED(uint2,    unity_EntityId)
 UNITY_DOTS_INSTANCING_END(BuiltinPropertyMetadata)
 
 #define unity_LODFade               LoadDOTSInstancedData_LODFade()

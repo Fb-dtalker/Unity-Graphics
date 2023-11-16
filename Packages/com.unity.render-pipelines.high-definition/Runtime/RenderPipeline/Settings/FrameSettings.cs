@@ -111,8 +111,8 @@ namespace UnityEngine.Rendering.HighDefinition
         /// <summary>Specifies the Lit Shader Mode for Cameras using these Frame Settings use to render the Scene.</summary>
         [FrameSettingsField(0, autoName: LitShaderMode, type: FrameSettingsFieldAttribute.DisplayType.BoolAsEnumPopup, targetType: typeof(LitShaderMode), customOrderInGroup: 0, tooltip: "Specifies the Lit Shader Mode for Cameras using these Frame Settings use to render the Scene (Depends on \"Lit Shader Mode\" in current HDRP Asset).")]
         LitShaderMode = 0,
-        /// <summary>When enabled, HDRP processes a depth prepass for Cameras using these Frame Settings. Set Lit Shader Mode to Deferred to access this option.</summary>
-        [FrameSettingsField(0, displayedName: "Depth Prepass within Deferred", positiveDependencies: new[] { LitShaderMode }, tooltip: "When enabled, HDRP processes a depth prepass for Cameras using these Frame Settings. Set Lit Shader Mode to Deferred to access this option.")]
+        /// <summary>When enabled, HDRP processes a full depth prepass for Cameras using these Frame Settings. Set Lit Shader Mode to Deferred to access this option.</summary>
+        [FrameSettingsField(0, displayedName: "Full Depth Prepass within Deferred", positiveDependencies: new[] { LitShaderMode }, tooltip: "When enabled, HDRP processes a full depth prepass (All meshes are sent) for Cameras using these Frame Settings. Set Lit Shader Mode to Deferred to access this option.")]
         DepthPrepassWithDeferredRendering = 1,
         /// <summary>When enabled, HDRP clear GBuffers for Cameras using these Frame Settings. Set Lit Shader Mode to Deferred to access this option.</summary>
         [FrameSettingsField(0, displayedName: "Clear GBuffers", positiveDependencies: new[] { LitShaderMode }, customOrderInGroup: 2, tooltip: "When enabled, HDRP clear GBuffers for Cameras using these Frame Settings. Set Lit Shader Mode to Deferred to access this option.")]
@@ -859,6 +859,9 @@ namespace UnityEngine.Rendering.HighDefinition
             sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.FullResolutionCloudsForSky] &= sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.VolumetricClouds];
             sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.Water] &= renderPipelineSettings.supportWater && !preview;
 
+            // Disable Lens Flares if they are unchecked in the HDRP Assets
+            sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.LensFlareDataDriven] &= sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.LensFlareDataDriven] && renderPipelineSettings.supportDataDrivenLensFlare;
+            
             // We must take care of the scene view fog flags in the editor
             bool atmosphericScattering = sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.AtmosphericScattering] &= sceneViewFog && !preview;
 
@@ -891,8 +894,8 @@ namespace UnityEngine.Rendering.HighDefinition
             sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.LowResTransparent] &= renderPipelineSettings.lowresTransparentSettings.enabled && sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.TransparentObjects];
 
             sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.LightListAsync] &= sanitizedFrameSettings.asyncEnabled;
-            sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.SSRAsync] &= (sanitizedFrameSettings.asyncEnabled && !rayTracingActive);
-            sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.SSAOAsync] &= (sanitizedFrameSettings.asyncEnabled && !rayTracingActive);
+            sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.SSRAsync] &= sanitizedFrameSettings.asyncEnabled;
+            sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.SSAOAsync] &= sanitizedFrameSettings.asyncEnabled;
             sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.ContactShadowsAsync] &= (sanitizedFrameSettings.asyncEnabled && !rayTracingActive);
             sanitizedFrameSettings.bitDatas[(int)FrameSettingsField.VolumeVoxelizationsAsync] &= sanitizedFrameSettings.asyncEnabled;
 

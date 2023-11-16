@@ -496,8 +496,8 @@ namespace UnityEditor.VFX
                 {
                     yield return "flipbookLayout";
                 }
-                if (!subOutput.supportsExcludeFromTAA)
-                    yield return "excludeFromTAA";
+                if (!subOutput.supportsExcludeFromTUAndAA)
+                    yield return "excludeFromTUAndAA";
                 if (!HasSorting())
                 {
                     yield return "sortMode";
@@ -641,7 +641,7 @@ namespace UnityEditor.VFX
             return vertsCount != 0;
         }
 
-        protected override void GenerateErrors(VFXInvalidateErrorReporter manager)
+        internal override void GenerateErrors(VFXInvalidateErrorReporter manager)
         {
             base.GenerateErrors(manager);
             var dataParticle = GetData() as VFXDataParticle;
